@@ -9,7 +9,8 @@ interface LibConfig {
 
 export interface Config {
     presets: string[]
-    plugins: string[],
+    plugins: string[]
+    extensions: string[]
     sourcemaps: 'inline' | 'external' | 'none'
     libraries: {[name: string]: LibConfig}
     baseURL: string
@@ -19,6 +20,7 @@ const defaultConfig: Config = {
     presets: ['typescript'],
     plugins: [],
     sourcemaps: 'inline',
+    extensions: ['ts', 'js'],
     libraries: {},
     baseURL: location.href
 }
@@ -180,6 +182,19 @@ export function configure(config: Config = defaultConfig) {
         return blobURL
     }
 
+    async function fetchAny(url: string) {
+        for (const extension of ['', ...config.extensions.map(e => `.${e}`)]) {
+            const fullURL = `${url}${extension}`
+            const exists = await fetch(fullURL, {method: 'HEAD'})
+            if (exists.status !== 200)
+                continue
+            const response = await fetch(fullURL)
+            return {response, fullURL}
+        }
+
+        return null
+    }
+
     async function resolve(name: string, baseURL: string): Promise<string> {
         console.info(`Searching for module ${name}`)
         if (moduleRegistry.has(name))
@@ -192,11 +207,13 @@ export function configure(config: Config = defaultConfig) {
         }
 
         const url = new URL(name, baseURL).href
-        const response = await fetch(url)
-        if (response.status !== 200)
+        const r = await fetchAny(url)
+        if (!r) 
             throw new Error(`Module not found: ${name}`)
-        const text = await response.text()
-        return resolveCode(text, url)
+        const text = await r.response.text()
+        const blobURL = await resolveCode(text, r.fullURL)
+        moduleRegistry.set(url, blobURL)
+        return blobURL
     }
 
     return {

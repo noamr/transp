@@ -6,6 +6,10 @@
   "repository": "git@github.com:noamr/transp.git",
   "author": "Noam Rosenthal <noam.j.rosenthal@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "build": "esbuild --target=chrome80 ./src/lib.ts --outfile=dist/index.js --sourcemap --bundle",
+    "test": "yarn build && yarn jest --runInBand"
+  },
   "devDependencies": {
     "@types/express": "^4.17.11",
     "@types/get-port": "^4.2.0",
