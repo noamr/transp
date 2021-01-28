@@ -1,0 +1,18 @@
+<html>
+    <head>
+        <link rel="library" name="lodash" 
+            href="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.20/lodash.min.js"
+            version="4.16.20" global="_" />
+
+        <script src="/dist/index.js"></script>
+
+        <trans-script>
+            import {join} from 'lodash'
+            function hello(): string {
+                return join(['Hello', 'World'], ' ')
+            }
+
+            window.testResult = hello()
+        </trans-script>
+    </head>
+</html>

@@ -1,0 +1,16 @@
+<html>
+    <head>
+        <script src="/dist/index.js"></script>
+        <script>
+            transp.configure({...transp.defaultConfig, libraries: {
+                lodash: {
+                    url: 'https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.20/lodash.min.js',
+                    version: '4.17.20',
+                    global: '_'
+                }
+            }}).import('./import-lodash').then(h => {
+                window.testResult = h.hello()
+            })
+        </script>
+    </head>
+</html>

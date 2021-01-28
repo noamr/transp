@@ -6,4 +6,7 @@ describe('Custom element', () => {
     it('should evaluate external Typescript', async () => {
         expect(await testURL('element-src.html')).toEqual('Hello World')
     })
+    it('should load external library from link', async () => {
+        expect(await testURL('element-with-external.html')).toEqual('Hello World')
+    })
 })

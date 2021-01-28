@@ -2,17 +2,17 @@ import * as lib from './lib'
 
 export default function init(transp: lib.Transp = lib.configure(), name: string = 'tran-script') {
     customElements.define(name, class TranScript extends HTMLElement {
-        private loaded: boolean
+        private loaded: boolean = false
 
         constructor() {
             super()
+            const document = this.ownerDocument
             const slotElement = document.createElement('slot')
             const style = document.createElement('style')
             const shadow = this.attachShadow({mode: 'closed'})
             style.innerHTML = `:host { display: none }`
             shadow.appendChild(style)
             shadow.appendChild(slotElement)
-            this.loaded = false
             slotElement.addEventListener('slotchange', this.render.bind(this))
         }
 
@@ -24,25 +24,20 @@ export default function init(transp: lib.Transp = lib.configure(), name: string 
             if (this.loaded)
                 return
 
+            const location = this.ownerDocument.URL
+
             const src = this.getAttribute('src')
-            const inner = this.firstChild
+            const inner = this.firstChild as Text
             if (!src && !(inner instanceof Text))
                 return
 
             this.loaded = true
 
-            const defer = this.getAttribute('defer') === 'defer'
-            
-            const execute = () =>
-                inner ?
-                    transp.eval((inner as Text).textContent || '', location.href) :
-                    transp.import(new URL(src as string, location.href).href)
-
-            if (defer && document.readyState !== 'complete')
-                window.addEventListener('DOMContentLoaded', execute)
+            if (inner)
+                transp.eval((inner as Text).textContent || '', location)
             else
-                execute()
-        }
+                transp.import(new URL(src as string, location).href)
 
+        }
     })
 }

@@ -5,5 +5,8 @@ describe('Imperative "import" functionality', () => {
     })
     it('Typescript files should import other typescript files', async () => {
         expect(await testURL('import-declarative.html')).toEqual(['Hello', 'World'])
-    }, 9999999)
+    })
+    it('Import external packages', async () => {
+        expect(await testURL('import-external.html')).toEqual('Hello World')
+    })
 })

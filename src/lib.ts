@@ -4,7 +4,7 @@ import * as uuid from 'uuid'
 interface LibConfig {
     version: string
     url: string
-    global: string    
+    global: string | null
 }
 
 export interface Config {
@@ -14,6 +14,7 @@ export interface Config {
     sourcemaps: 'inline' | 'external' | 'none'
     libraries: {[name: string]: LibConfig}
     baseURL: string
+    enableLibraryLinks: boolean
 }
 
 export interface Transp {
@@ -21,38 +22,18 @@ export interface Transp {
     import<T = any>(href: string): Promise<T>
 }
 
-const defaultConfig: Config = {
+export const defaultConfig: Config = {
     presets: ['typescript'],
     plugins: [],
     sourcemaps: 'inline',
     extensions: ['ts', 'js'],
     libraries: {},
-    baseURL: location.href
+    baseURL: location.href,
+    enableLibraryLinks: true
 }
-/*
-let globalImportsInitializer: Promise<void> | null = null
 
-const initGlobalImports = () => new Promise(resolve => {
-    globalImportsInitializer = globalImportsInitializer || (async () => {
-        const importMapLinks = Array.from(document.querySelectorAll('head link[rel="importmap"][href]')) as HTMLLinkElement[]
-        const importLinks = Array.from(document.querySelectorAll('head link[rel="package"]')) as HTMLLinkElement[]
-        const importMaps = [...await Promise.all(importMapLinks.map(async link => await (await fetch(link.href)).json() as ImportMap)),
-            ...importLinks.map(
-                l => ({[l.getAttribute('name') || '']: {global: l.getAttribute('global'), version: l.getAttribute('version'), url: l.getAttribute('href')}} as ImportMap))
-        ]
-
-        const importMap = importMaps.reduce((a, o) => Object.assign(a, o), {})
-        console.log(importMap)
-
-    })()
-
-    globalImportsInitializer.then(() => resolve({}))
-})
-
-customElements.define('trans-script', BundleScript)
-*/
-
-export function configure(config: Config = defaultConfig): Transp {
+export function configure(cfg: Partial<Config> = {}): Transp {
+    const config = {...defaultConfig, ...cfg}
     const moduleRegistry: Map<string, string> = new Map()
 
     async function resolveExternal(name: string, lib: LibConfig): Promise<string> {
@@ -62,11 +43,12 @@ export function configure(config: Config = defaultConfig): Transp {
         console.info(`Loading library ${name}`)
         const moduleURL = await new Promise<string>(res => {
             script.addEventListener('load', () => {
-                const lib = window[global]
-                const asModule = Object.keys(lib).map(key => `
-                    export const ${key} = window["${global}"]["${key}"];
-                `).join('\n') + `
-                export default ${global};`
+                const asModule = global ? (() => {
+                    return `${Object.keys(window[global]).map(key => `
+                        export const ${key} = window["${global}"]["${key}"];
+                    `).join('\n')}
+                    export default ${global};`
+                })() : ''
                 const blob = new Blob([asModule], {type: 'text/javascript'})
                 const blobURL = URL.createObjectURL(blob)
                 console.info(`Loaded library ${name}`)
@@ -101,7 +83,7 @@ export function configure(config: Config = defaultConfig): Transp {
                         if (moduleRegistry.has(value))
                             node.source.value = moduleRegistry.get(value)
                         else
-                            pendingImports.add(value)
+                            pendingImports.add(node.source.value)
                     }
                 }
             }
@@ -140,6 +122,17 @@ export function configure(config: Config = defaultConfig): Transp {
         console.info(`Searching for module ${name}`)
         if (moduleRegistry.has(name))
             return moduleRegistry.get(name)
+
+        if (config.enableLibraryLinks && !config.libraries.name) {
+            const link = document.querySelector(`link[rel="library"][name="${name}"][href][version]`)
+            if (link) {
+                config.libraries[name] = {
+                    version: link.getAttribute('version') as string,
+                    url: new URL(link.getAttribute('href') as string, baseURL).href,
+                    global: link.getAttribute('global')
+                }
+            }
+        }
 
         if (config.libraries[name]) {
             const libCode = await resolveExternal(name, config.libraries[name])

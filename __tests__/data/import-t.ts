@@ -1,2 +1,2 @@
 import {hello} from './imported'
-Reflect.set(window, 'testResult', hello())
+window.testResult = hello() as string
