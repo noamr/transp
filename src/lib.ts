@@ -180,5 +180,3 @@ export function configure(config: Config = defaultConfig): Transp {
             resolveCode(code, url).then(importImpl)
     }
 }
-
-window.transp = {default: configure(), configure}

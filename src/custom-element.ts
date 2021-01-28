@@ -1,62 +1,48 @@
-import * as uuid from 'uuid'
-import {resolve, resolveCode} from './impl'
-class TranScript extends HTMLElement {
-    shadow: HTMLShadowElement
-    slotElement: HTMLSlotElement
-    loaded: boolean
+import * as lib from './lib'
 
-    constructor() {
-        super()
-        this.slotElement = document.createElement('slot')
-        const style = document.createElement('style')
-        this.shadow = this.attachShadow({mode: 'closed'})
-        style.innerHTML = `:host { display: none }`
-        this.shadow.appendChild(style)
-        this.shadow.appendChild(this.slotElement)
-        this.loaded = false
-        this.slotElement.addEventListener('slotchange', () => {
-            this.render()
-        })
-    }
+export default function init(transp: lib.Transp = lib.configure(), name: string = 'tran-script') {
+    customElements.define(name, class TranScript extends HTMLElement {
+        private loaded: boolean
 
-    get observedAttributes() { return ['src'] }
-    attributesChangedCallback() {
-        this.render()
-    }
-
-    connectedCallback() {
-        this.render()
-    }
-
-    async render() {
-        if (this.loaded)
-            return
-
-        const src = this.getAttribute('src')
-        const inner = this.innerText
-        if (!src && !inner)
-            return
-
-        this.loaded = true
-
-        const defer = this.getAttribute('defer') === 'defer'
-        
-        const dispatch = async () => {
-            const blobURL = inner ?
-                await resolveCode(inner, location.href) :
-                await resolve(src as string, location.href)
-
-            const uid = uuid.v4()
-            const script = document.createElement('script')
-            script.type = 'module'
-            const textNode = document.createTextNode(`import('${blobURL}')`)
-            script.appendChild(textNode)
-            this.shadow.appendChild(script)
+        constructor() {
+            super()
+            const slotElement = document.createElement('slot')
+            const style = document.createElement('style')
+            const shadow = this.attachShadow({mode: 'closed'})
+            style.innerHTML = `:host { display: none }`
+            shadow.appendChild(style)
+            shadow.appendChild(slotElement)
+            this.loaded = false
+            slotElement.addEventListener('slotchange', this.render.bind(this))
         }
 
-        if (defer && document.readyState !== 'complete')
-            window.addEventListener('DOMContentLoaded', dispatch)
-        else
-            dispatch()
-    }
+        get observedAttributes() { return ['src'] }
+        attributesChangedCallback() { this.render() }
+        connectedCallback() { this.render() }
+
+        async render() {
+            if (this.loaded)
+                return
+
+            const src = this.getAttribute('src')
+            const inner = this.firstChild
+            if (!src && !(inner instanceof Text))
+                return
+
+            this.loaded = true
+
+            const defer = this.getAttribute('defer') === 'defer'
+            
+            const execute = () =>
+                inner ?
+                    transp.eval((inner as Text).textContent || '', location.href) :
+                    transp.import(new URL(src as string, location.href).href)
+
+            if (defer && document.readyState !== 'complete')
+                window.addEventListener('DOMContentLoaded', execute)
+            else
+                execute()
+        }
+
+    })
 }

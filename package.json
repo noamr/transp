@@ -7,7 +7,7 @@
   "author": "Noam Rosenthal <noam.j.rosenthal@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "build": "esbuild --target=chrome80 ./src/lib.ts --outfile=dist/index.js --sourcemap --bundle",
+    "build": "esbuild --target=chrome80 ./src/default.ts --outfile=dist/index.js --sourcemap --bundle",
     "test": "yarn build && yarn jest --runInBand"
   },
   "devDependencies": {
