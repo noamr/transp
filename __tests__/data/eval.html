@@ -2,7 +2,11 @@
     <head>
         <script src="/dist/index.js"></script>
         <script>
-            transp.default.import('./imported.ts').then(h => {
+            transp.default.eval(`
+                export function hello(): string {
+                    return 'Hello World'
+                }
+            `).then(h => {
                 window.testResult = h.hello()
             })
         </script>

@@ -2,7 +2,7 @@
     <head>
         <script src="/dist/index.js"></script>
         <script>
-            transp.import('./imported2.ts').then(h => {
+            transp.default.import('./imported2.ts').then(h => {
                 window.testResult = h.data()
             })
         </script>

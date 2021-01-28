@@ -16,6 +16,11 @@ export interface Config {
     baseURL: string
 }
 
+export interface Transp {
+    eval<T = any>(code: string, href?: string): Promise<T>
+    import<T = any>(href: string): Promise<T>
+}
+
 const defaultConfig: Config = {
     presets: ['typescript'],
     plugins: [],
@@ -43,72 +48,11 @@ const initGlobalImports = () => new Promise(resolve => {
 
     globalImportsInitializer.then(() => resolve({}))
 })
-class BundleScript extends HTMLElement {
-    shadow: HTMLShadowElement
-    slotElement: HTMLSlotElement
-    loaded: boolean
-
-    constructor() {
-        super()
-        this.slotElement = document.createElement('slot')
-        const style = document.createElement('style')
-        this.shadow = this.attachShadow({mode: 'closed'})
-        style.innerHTML = `:host { display: none }`
-        this.shadow.appendChild(style)
-        this.shadow.appendChild(this.slotElement)
-        this.loaded = false
-        this.slotElement.addEventListener('slotchange', () => {
-            this.render()
-        })
-    }
-
-    get observedAttributes() { return ['src', 'onerror'] }
-    attributesChangedCallback() {
-        this.render()
-    }
-
-    connectedCallback() {
-        this.render()
-    }
-
-    async render() {
-        if (this.loaded)
-            return
-
-        const src = this.getAttribute('src')
-        const inner = this.innerText
-        if (!src && !inner)
-            return
-
-        this.loaded = true
-
-        await initGlobalImports()
-        const defer = this.getAttribute('defer') === 'defer'
-        
-        const dispatch = async () => {
-            const blobURL = inner ?
-                await resolveCode(inner, location.href) :
-                await resolve(src as string, location.href)
-
-            const uid = uuid.v4()
-            const script = document.createElement('script')
-            script.type = 'module'
-            const textNode = document.createTextNode(`import('${blobURL}')`)
-            script.appendChild(textNode)
-            this.shadow.appendChild(script)
-        }
-
-        if (defer && document.readyState !== 'complete')
-            window.addEventListener('DOMContentLoaded', dispatch)
-        else
-            dispatch()
-    }
-}
 
 customElements.define('trans-script', BundleScript)
 */
 
-export function configure(config: Config = defaultConfig) {
+export function configure(config: Config = defaultConfig): Transp {
     const moduleRegistry: Map<string, string> = new Map()
 
     async function resolveExternal(name: string, lib: LibConfig): Promise<string> {
@@ -137,8 +81,8 @@ export function configure(config: Config = defaultConfig) {
     async function resolveModule(code: string, href: string) {
         const pendingImports = new Set<string>()
         const transformImports = () => transform(code, {
-            presets: [availablePresets.typescript],
-            sourceMaps: 'inline',
+            presets: [['typescript', {allExtensions: true}]],
+            sourceMaps: config.sourcemaps,
             filename: new URL(href).pathname,
             plugins: [{
                 visitor: {
@@ -176,10 +120,7 @@ export function configure(config: Config = defaultConfig) {
         if (!result || !result.code)
             throw new Error(`Unable to import ${name}`)
 
-        const blob = new Blob([result.code], {type: 'text/javascript'})
-        const blobURL = URL.createObjectURL(blob)
-        moduleRegistry.set(href, blobURL)
-        return blobURL
+        return URL.createObjectURL(new Blob([result.code], {type: 'text/javascript'}))
     }
 
     async function fetchAny(url: string) {
@@ -216,24 +157,28 @@ export function configure(config: Config = defaultConfig) {
         return blobURL
     }
 
+    function importImpl<T = any>(blobURL: string): Promise<any> {
+        const uid = uuid.v4()
+        return new Promise<T>((resolve, reject) => {
+            const script = document.createElement('script')
+            window[uid] = {resolve, reject, remove: () => {script.remove()}}
+            script.type = 'module'
+            script.innerHTML = `
+                const {resolve, reject, remove} = window['${uid}']                    
+                delete window['${uid}']
+                import('${blobURL}').then(resolve).catch(reject)
+                remove()
+            `
+            document.head.appendChild(script)
+        })
+    }
+
     return {
-        async import(url: string): Promise<any> {
-            const imported = await resolve(url, config.baseURL)
-            const uid = uuid.v4()
-            return new Promise((resolve, reject) => {
-                const script = document.createElement('script')
-                window[uid] = {resolve, reject, remove: () => {script.remove()}}
-                script.type = 'module'
-                script.innerHTML = `
-                    const {resolve, reject, remove} = window['${uid}']                    
-                    delete window['${uid}']
-                    import('${imported}').then(resolve).catch(reject)
-                    remove()
-                `
-                document.head.appendChild(script)
-            })
-        }
+        import: <T = any>(url: string): Promise<T> => 
+            resolve(url, config.baseURL).then(importImpl),
+        eval: <T = any>(code: string, url: string = config.baseURL): Promise<T> => 
+            resolveCode(code, url).then(importImpl)
     }
 }
 
-window.transp = configure()
+window.transp = {default: configure(), configure}
