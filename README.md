@@ -1,6 +1,12 @@
 # transp
 Transparent client-side transpilation
-
+```
+<script src="https://cdn.jsdelivr.net/npm/transp@0.0.2/dist/transp.min.js"></script>
+<trans-script>
+    // This is Typescript!
+    console.log('Hello World' as string)
+</trans-script>
+```
 ## Overview
 Transp enables standalone client-side transparent 0transpilation (Typescript, JSX, etc.), without requiring node.js
 It uses [Babel Standalone](https://github.com/babel/babel-standalone) to transpile, and handles the 
