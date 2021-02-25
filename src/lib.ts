@@ -1,18 +1,13 @@
 import {transform, availablePresets} from '@babel/standalone'
 import * as uuid from 'uuid'
 
-interface LibConfig {
-    version: string
-    url: string
-    global: string | null
-}
 
 export interface Config {
     presets: string[]
     plugins: string[]
     extensions: string[]
     sourcemaps: 'inline' | 'external' | 'none'
-    libraries: {[name: string]: LibConfig}
+    libraries: {[name: string]: string}
     baseURL: string
     enableLibraryLinks: boolean
 }
@@ -36,30 +31,8 @@ export const defaultConfig: Config = {
 export function configure(cfg: Partial<Config> = {}): Transp {
     const config = {...defaultConfig, ...cfg}
     const moduleRegistry: Map<string, string> = new Map()
-
-    async function resolveExternal(name: string, lib: LibConfig): Promise<string> {
-        const {global, version, url} = lib
-        const script = document.createElement('script')
-        script.src = url
-        console.info(`Loading library ${name}`)
-        const moduleURL = await new Promise<string>(res => {
-            script.addEventListener('load', () => {
-                const asModule = global ? (() => {
-                    return `${Object.keys(window[global]).map(key => `
-                        export const ${key} = window["${global}"]["${key}"];
-                    `).join('\n')}
-                    export default ${global};`
-                })() : ''
-                const blob = new Blob([asModule], {type: 'text/javascript'})
-                const blobURL = URL.createObjectURL(blob)
-                console.info(`Loaded library ${name}`)
-                res(blobURL)
-            })
-            document.head.appendChild(script)
-        })
-        moduleRegistry.set(name, moduleURL)
-        return moduleURL
-    }
+    for (const libName in config.libraries)
+        moduleRegistry.set(libName, config.libraries[libName])
 
     async function resolveModule(code: string, href: string) {
         const pendingImports = new Set<string>()
@@ -121,27 +94,21 @@ export function configure(cfg: Partial<Config> = {}): Transp {
 
     async function resolve(name: string, baseURL: string): Promise<string> {
         console.info(`Searching for module ${name}`)
+
         if (moduleRegistry.has(name))
             return moduleRegistry.get(name)
 
         if (name.startsWith('blob:'))
             return name
 
-        if (config.enableLibraryLinks && !config.libraries.name) {
-            const link = document.querySelector(`link[rel="library"][name="${name}"][href][version]`)
-            if (link) {
-                config.libraries[name] = {
-                    version: link.getAttribute('version') as string,
-                    url: new URL(link.getAttribute('href') as string, baseURL).href,
-                    global: link.getAttribute('global')
-                }
-            }
-        }
 
-        if (config.libraries[name]) {
-            const libCode = await resolveExternal(name, config.libraries[name])
-            moduleRegistry.set(name, libCode)
-            return libCode
+        if (config.enableLibraryLinks) {
+            const link = document.querySelector(`link[rel="library"][name="${name}"][href]`)
+            if (link) {
+                const href = new URL(link.getAttribute('href') as string, baseURL).href
+                moduleRegistry.set(name, href)
+                return href
+            }
         }
 
         const url = new URL(name, baseURL).href
