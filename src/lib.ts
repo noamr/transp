@@ -124,6 +124,9 @@ export function configure(cfg: Partial<Config> = {}): Transp {
         if (moduleRegistry.has(name))
             return moduleRegistry.get(name)
 
+        if (name.startsWith('blob:'))
+            return name
+
         if (config.enableLibraryLinks && !config.libraries.name) {
             const link = document.querySelector(`link[rel="library"][name="${name}"][href][version]`)
             if (link) {
