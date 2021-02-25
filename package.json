@@ -1,6 +1,6 @@
 {
   "name": "transp",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Transparent client-side transpiler",
   "main": "dist/cjs/index.js",
   "repository": "git@github.com:noamr/transp.git",

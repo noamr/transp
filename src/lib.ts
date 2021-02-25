@@ -20,6 +20,7 @@ export interface Config {
 export interface Transp {
     eval<T = any>(code: string, href?: string): Promise<T>
     import<T = any>(href: string): Promise<T>
+    compile(code: string, href: string): Promise<string>
 }
 
 export const defaultConfig: Config = {
@@ -97,7 +98,7 @@ export function configure(cfg: Partial<Config> = {}): Transp {
         return transformImports()
     }
 
-    async function resolveCode(code: string, href: string): Promise<string> {
+    async function resolveCode(code: string, href: string = location.href): Promise<string> {
         const result = await resolveModule(code, href)
         if (!result || !result.code)
             throw new Error(`Unable to import ${name}`)
@@ -170,6 +171,7 @@ export function configure(cfg: Partial<Config> = {}): Transp {
         import: <T = any>(url: string): Promise<T> => 
             resolve(url, config.baseURL).then(importImpl),
         eval: <T = any>(code: string, url: string = config.baseURL): Promise<T> => 
-            resolveCode(code, url).then(importImpl)
+            resolveCode(code, url).then(importImpl),
+        compile: resolveCode
     }
 }

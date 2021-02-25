@@ -7,9 +7,10 @@ const transpDefault = configure()
 export default {
     eval: transpDefault.eval,
     import: transpDefault.import,
+    compile: transpDefault.compile,
     configure,
     initCustomElement
 } as Transp & {
-    configure: (config?: Config) => Transp,
+    configure: (config?: Partial<Config>) => Transp,
     initCustomElement: (transp?: Transp, name?: string) => void
 }
